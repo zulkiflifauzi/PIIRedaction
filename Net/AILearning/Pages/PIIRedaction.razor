@@ -1,0 +1,250 @@
+﻿@page "/pii-redaction"
+@using System.Text.Json;
+@using AILearning.Helper;
+@using AILearning.Model;
+@using System.Text;
+@using System.Net;
+@inject HttpClient httpClient;
+@inject IJSRuntime jsRuntime;
+
+<h3>PII Redaction</h3>
+<MudPaper Elevation="3" Class="pa-5 mb-5">
+    <MudGrid>
+
+        <MudItem md="6" xs="12">
+            <MudTextField T="string" Label="Input Text" Variant="Variant.Outlined" @bind-Value="@_inputText" Lines="12" />
+        </MudItem>
+        <MudItem md="6" xs="12">
+            <MudTextField T="string" Label="Redacted Result" Variant="Variant.Outlined" Text="@_redactedText" Lines="12" />
+        </MudItem>
+        <MudItem md="12" xs="12">
+            <div class="d-flex justify-start mt-4">
+                <div style="min-width:400px;">
+                    <MudSelect SelectAll="true" SelectAllText="Select all Entities" Style="min-width: 400px;" T="string" Label="Select Entities" MultiSelection="true" @bind-Value="value" @bind-SelectedValues="_entities">
+
+                        <MudSelectItem T="string" Value="@CreditCard">Credit Card</MudSelectItem>
+                        <MudSelectItem T="string" Value="@DateTime">Date Time</MudSelectItem>
+                        <MudSelectItem T="string" Value="@EmailAddress">Email Address</MudSelectItem>
+                        <MudSelectItem T="string" Value="@IPAddress">IP Address</MudSelectItem>
+                        <MudSelectItem T="string" Value="@Location">Location</MudSelectItem>
+                        <MudSelectItem T="string" Value="@MedicalLicense">Medical License</MudSelectItem>
+                        <MudSelectItem T="string" Value="@NRP">Nationality Religious or Political group</MudSelectItem>
+                        <MudSelectItem T="string" Value="@Organization">Organization</MudSelectItem>
+                        <MudSelectItem T="string" Value="@Person">Person</MudSelectItem>
+                        <MudSelectItem T="string" Value="@USDriverLicense">US Driver License</MudSelectItem>
+                        <MudSelectItem T="string" Value="@USITINCode">US Individual Taxpayer Identification Number</MudSelectItem>
+                        <MudSelectItem T="string" Value="@USPassport">US Passport</MudSelectItem>
+                        <MudSelectItem T="string" Value="@US_SSN">US SSN</MudSelectItem>
+                    </MudSelect>
+                </div>
+                <div class="ml-5 mt-4">
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => Redact()" EndIcon="@Icons.Material.Filled.Transform">Redact</MudButton>
+                </div>
+
+            </div>
+        </MudItem>
+        <MudItem md="12" xs="12">
+            Selected Entities: @value
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+<MudPaper Elevation="3" Class="pa-5">
+    <MudGrid>
+        <MudItem md="12" xs="12">
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => SendToLLM()" EndIcon="@Icons.Material.Filled.Transform">Send to LLM</MudButton>
+        </MudItem>
+        <MudItem md="6" xs="12">
+            <MudTextField T="string" Label="LLM Result" Variant="Variant.Outlined" Text="@_llmResult" Lines="12" />
+        </MudItem>
+        <MudItem md="6" xs="12">
+            <MudText>Final Result:</MudText>
+            <MudText>@_finalResult</MudText>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+@if (_dataLoaded)
+{
+    <MudOverlay Visible="true" DarkBackground="true">
+        <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+    </MudOverlay>
+}
+
+@code {
+    private bool _dataLoaded { get; set; } = false;
+    private string _inputText { get; set; }
+    private string _redactedText { get; set; }
+    private string _llmResult { get; set; }
+    private string _finalResult { get; set; }
+    private IEnumerable<string> _entities { get; set; }
+    private string value { get; set; } = "Nothing selected";
+    private string EmailAddress = "EMAIL_ADDRESS";
+    private string USPassport = "US_PASSPORT";
+    private string CreditCard = "CREDIT_CARD";
+    private string Location = "LOCATION";
+    private string US_SSN = "US_SSN";
+    private string DateTime = "DATE_TIME";
+    private string Organization = "ORGANIZATION";
+    private string USBankNumber = "US_BANK_NUMBER";
+    private string MedicalLicense = "MEDICAL_LICENSE";
+    private string IPAddress = "IP_ADDRESS";
+    private string PhoneNumber = "PHONE_NUMBER";
+    private string NRP = "NRP";
+    private string USITINCode = "US_ITIN";
+    private string Person = "PERSON";
+    private string USDriverLicense = "US_DRIVER_LICENSE";
+
+    private Dictionary<string, string> RedactedResult { get; set; }
+    private async Task Redact()
+    {
+        _dataLoaded = true;
+        RedactedResult = new Dictionary<string, string>();
+        int emailCount = 0;
+        int uSPassportCount = 0;
+        int creditCardCount = 0;
+        int locationCount = 0;
+        int uSSSNCount = 0;
+        int dateTimeCount = 0;
+        int organizationCount = 0;
+        int usBankNumberCount = 0;
+        int medicalLicenseCount = 0;
+        int ipAddressCount = 0;
+        int phoneNumberCount = 0;
+        int nrpCount = 0;
+        int usItinCount = 0;
+        int personCount = 0;
+        int usDriverLicenseCount = 0;
+
+        if (string.IsNullOrEmpty(_inputText))
+        {
+            jsRuntime.InvokeVoidAsync("alert", "Please fill the Input Text field.");
+            return;
+        }
+        if (_entities == null)
+        {
+            jsRuntime.InvokeVoidAsync("alert", "Please select at least one entity to redact.");
+            return;
+        }
+        _redactedText = string.Empty;
+        try
+        {
+            RedactDto input = new RedactDto();
+            input.Input = _inputText;
+            input.Entities = _entities.ToList();
+            string tempRedacted = _inputText;
+            var content = JsonSerializer.Serialize(input);
+            var bodyContent = new StringContent(content, Encoding.UTF8, "application/json");
+            var response = await httpClient.PostAsync("http://localhost:7000/", bodyContent);
+            var result = await response.Content.ReadFromJsonAsync<List<RedactResultDto>>();
+            foreach (var item in result)
+            {
+                string keyName = string.Empty;
+                switch (item.entity_type)
+                {
+                    case "EMAIL_ADDRESS":
+                        emailCount += 1;
+                        keyName = "[EMAIL_ADDRESS_" + emailCount + "]";
+                        break;
+                    case "US_PASSPORT":
+                        uSPassportCount += 1;
+                        keyName = "[US_PASSPORT_" + uSPassportCount + "]";
+                        break;
+                    case "CREDIT_CARD":
+                        creditCardCount += 1;
+                        keyName = "[CREDIT_CARD_" + creditCardCount + "]";
+                        break;
+                    case "LOCATION":
+                        locationCount += 1;
+                        keyName = "[LOCATION_" + locationCount + "]";
+                        break;
+                    case "US_SSN":
+                        uSSSNCount += 1;
+                        keyName = "[US_SSN_" + uSSSNCount + "]";
+                        break;
+                    case "DATE_TIME":
+                        dateTimeCount += 1;
+                        keyName = "[DATE_TIME_" + dateTimeCount + "]";
+                        break;
+                    case "ORGANIZATION":
+                        organizationCount += 1;
+                        keyName = "[ORGANIZATION_" + organizationCount + "]";
+                        break;
+                    case "US_BANK_NUMBER":
+                        usBankNumberCount += 1;
+                        keyName = "[US_BANK_NUMBER_" + usBankNumberCount + "]";
+                        break;
+                    case "MEDICAL_LICENSE":
+                        medicalLicenseCount += 1;
+                        keyName = "[MEDICAL_LICENSE_" + medicalLicenseCount + "]";
+                        break;
+                    case "IP_ADDRESS":
+                        ipAddressCount += 1;
+                        keyName = "[IP_ADDRESS_" + ipAddressCount + "]";
+                        break;
+                    case "PHONE_NUMBER":
+                        phoneNumberCount += 1;
+                        keyName = "[PHONE_NUMBER_" + phoneNumberCount + "]";
+                        break;
+                    case "NRP":
+                        nrpCount += 1;
+                        keyName = "[NRP_" + nrpCount + "]";
+                        break;
+                    case "US_ITIN":
+                        usItinCount += 1;
+                        keyName = "[US_ITIN_" + usItinCount + "]";
+                        break;
+                    case "PERSON":
+                        personCount += 1;
+                        keyName = "[PERSON_" + personCount + "]";
+                        break;
+                    case "US_DRIVER_LICENSE":
+                        usDriverLicenseCount += 1;
+                        keyName = "[US_DRIVER_LICENSE_" + usDriverLicenseCount + "]";
+                        break;
+                }
+
+                RedactedResult.Add(keyName, item.value);
+                tempRedacted = tempRedacted.Replace(item.value, keyName);
+            }
+
+            _redactedText = tempRedacted;
+
+        }
+        catch (Exception ex)
+        {
+            _dataLoaded = false;
+            return;    
+        }
+
+        _dataLoaded = false;
+    }
+
+    private async Task SendToLLM()
+    {
+        _dataLoaded = true;
+        try
+        {
+            LLMInputDto input = new LLMInputDto();
+            input.Input = _redactedText;
+            var content = JsonSerializer.Serialize(input);
+            var bodyContent = new StringContent(content, Encoding.UTF8, "application/json");
+            var response = await httpClient.PostAsync("http://localhost:7000/chat", bodyContent);
+            var result = await response.Content.ReadFromJsonAsync<LLMResultDto>();
+            _llmResult = result.Result;
+            Reverse();
+        }    
+        catch (Exception ex)
+        {
+            return;
+        }
+        _dataLoaded = false;
+    }
+
+    private void Reverse()
+    {
+        _finalResult = _llmResult;
+        foreach (var item in RedactedResult)
+        {
+            _finalResult = _finalResult.Replace(item.Key, item.Value);
+        }
+    }
+}
