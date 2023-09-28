@@ -1,26 +1,20 @@
-import requests
 from flask import Flask
 from flask import request, json, jsonify
 import json
-app = Flask(__name__)
-import spacy
 from spacy_recognizer import CustomSpacyRecognizer
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import AnonymizerEngine
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
-import pandas as pd
-from annotated_text import annotated_text
 from json import JSONEncoder
 import json
 import warnings
 import os
-from flask_cors import CORS, cross_origin
 from hugchat import hugchat
 from hugchat.login import Login
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings('ignore')
-# from flair_recognizer import FlairRecognizer
 
+app = Flask(__name__)
 
 # Helper methods
 def analyzer_engine():
@@ -47,12 +41,7 @@ def analyzer_engine():
 
     analyzer = AnalyzerEngine(nlp_engine=nlp_engine,
                               registry=registry, supported_languages=["en"])
-
-    # uncomment for flair-based NLP recognizer
-    # flair_recognizer = FlairRecognizer()
-    # registry.load_predefined_recognizers()
-    # registry.add_recognizer(flair_recognizer)
-    # analyzer = AnalyzerEngine(registry=registry, supported_languages=["en"])
+    
     return analyzer
 
 def anonymizer_engine():
@@ -109,7 +98,6 @@ class ToDictListEncoder(JSONEncoder):
         return []
     
 @app.route('/', methods=["POST"])
-@cross_origin(origin='*')
 def main():  
     requestData = json.loads(request.data) 
     input = requestData['Input']
@@ -127,7 +115,6 @@ def main():
     return json.dumps(analyze_results, cls=ToDictListEncoder)
 
 @app.route('/chat', methods=["POST"])
-@cross_origin(origin='*')
 def chat():  
     requestData = json.loads(request.data) 
     input = requestData['Input']
@@ -138,11 +125,7 @@ def chat():
     # Save cookies to the local directory
     cookie_path_dir = "./cookies_snapshot"
     sign.saveCookiesToDir(cookie_path_dir)
-
-    # Load cookies when you restart your program:
-    # sign = login(email, None)
-    # cookies = sign.loadCookiesFromDir(cookie_path_dir) # This will detect if the JSON file exists, return cookies if it does and raise an Exception if it's not.
-
+  
     # Create a ChatBot
     chatbot = hugchat.ChatBot(cookies=cookies.get_dict())  # or cookie_path="usercookies/<email>.json"
     data = {
