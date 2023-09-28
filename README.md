@@ -1,5 +1,5 @@
 # PIIRedaction
-There are two apps that need to be run, python application ran on Flask API Server and the client side application using Blazor PWA:
+There are two apps that need to be run, python application hosted on Flask API Server and the client side application using Blazor PWA:
 ## 1. Flask Web API
 This will host a Python script for redact user input and send it to the hugging face chat API
 ### Prerequisites
