@@ -11,6 +11,7 @@ import os
 import pandas as pd
 import train
 import asyncio
+import client
 warnings.filterwarnings('ignore')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024    # 50 Mb limit
 
@@ -26,6 +27,17 @@ def main():
     df = pd.read_csv(input)
     data = {
         "result" : df.columns.to_list()
+    }
+    return jsonify(data)
+@app.route('/testsentence', methods=["POST"])
+def testsentence():  
+    requestData = json.loads(request.data) 
+    fileName = requestData['FileName']
+    sentence = requestData['Sentence']
+    testSentence = requestData['TestSentence']
+    testResult = client.test(fileName, sentence, testSentence)
+    data = {
+        "Result" : testResult[0].tolist()
     }
     return jsonify(data)
 

@@ -20,48 +20,84 @@
     </MudButton>
     <MudText Style="margin-top:20px">@_fileName</MudText>
 </MudPaper>
-<MudPaper Elevation="3" Class="pa-5 mb-5">
-    <MudGrid Class="">
-        <MudItem md="3" xs="12">
-            <MudSelect T="string" Label="Train Column" SelectedValuesChanged="SelectedSenteceChanged" @bind-Value="_selectedSentence" AnchorOrigin="Origin.BottomCenter">
-                @foreach (var item in _sentenceColumn)
-                {
-                    <MudSelectItem Value="@item">@item</MudSelectItem>
-                }
-            </MudSelect>
-        </MudItem>
-        @if (!string.IsNullOrEmpty(_selectedSentence))
-        {
-             <MudItem md="3" xs="12">
-                <MudSelect T="string" Label="Label Columns" MultiSelection=true @bind-SelectedValues="_labels" AnchorOrigin="Origin.BottomCenter">
-                    @foreach (var item in _labelsColumn)
+@if (!string.IsNullOrEmpty(_fileName))
+{
+    <MudPaper Elevation="3" Class="pa-5 mb-5">
+        <MudGrid Class="">
+            <MudItem md="3" xs="12">
+                <MudSelect T="string" Label="Train Column" SelectedValuesChanged="SelectedSenteceChanged" @bind-Value="_selectedSentence" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var item in _sentenceColumn)
                     {
                         <MudSelectItem Value="@item">@item</MudSelectItem>
                     }
-                </MudSelect>   
+                </MudSelect>
             </MudItem>
-            <MudItem Style="margin-top:17px" md="3" xs="12">
+            @if (!string.IsNullOrEmpty(_selectedSentence))
+            {
+                <MudItem md="3" xs="12">
+                    <MudSelect T="string" Label="Label Columns" MultiSelection=true @bind-SelectedValues="_labels" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (var item in _labelsColumn)
+                        {
+                            <MudSelectItem Value="@item">@item</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem Style="margin-top:17px" md="3" xs="12">
+                    <MudButton HtmlTag="label"
+                       Variant="Variant.Filled"
+                       Color="Color.Success"
+                       StartIcon="@Icons.Filled.Train"
+                       OnClick="Train">
+                        Train
+                    </MudButton>
+                </MudItem>
+            }
+
+        </MudGrid>
+    </MudPaper>
+}
+@*@if (_showTestSentence)
+{*@
+    <MudPaper Elevation="3" Class="pa-5 mb-5">
+        <MudGrid>
+            <MudItem md="12" xs="12">
+                <MudTextField Lines="6" Label="Test Sentence Text" Variant="Variant.Outlined" @bind-Value="@_testSentence"></MudTextField>
+            </MudItem>
+            <MudItem Style="margin-top:17px" md="12" xs="12">
                 <MudButton HtmlTag="label"
-                           Variant="Variant.Filled"
-                           Color="Color.Success"
-                           StartIcon="@Icons.Filled.Train"
-                           OnClick="Train">
-                    Train
+                       Variant="Variant.Filled"
+                       Color="Color.Success"
+                       StartIcon="@Icons.Filled.Cached"
+                       OnClick="Test">
+                    Test
                 </MudButton>
             </MudItem>
-        }
-       
-    </MudGrid>
-</MudPaper>
+            <MudItem Style="margin-top:17px" md="12" xs="12">
+                <MudText>@_testResult</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+@*}*@
+@if (_dataLoaded)
+{
+    <MudOverlay Visible="true" DarkBackground="true">
+        <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+    </MudOverlay>
+}
 @code {
     string _selectedSentence { get; set; }
     List<string> _sentenceColumn { get; set; } = new List<string>();
     List<string> _labelsColumn { get; set; } = new List<string>();
     IEnumerable<string> _labels { get; set; }
     string _fileName { get; set; }
+    string _testSentence { get; set; }
+    bool _showTestSentence { get; set; } = false;
+    bool _dataLoaded { get; set; } = false;
+    string _testResult { get; set; }
     ClassifierUploadResultDto result = new ClassifierUploadResultDto();
     private async Task UploadFiles(InputFileChangeEventArgs e)
     {
+        _dataLoaded = true;
         _sentenceColumn = new List<string>();
         _labelsColumn = new List<string>();
         _selectedSentence = string.Empty;
@@ -86,6 +122,7 @@
         _sentenceColumn.AddRange(result.Result);
         _labelsColumn.AddRange(result.Result);
         StateHasChanged();
+        _dataLoaded = false;
     }
 
     private void SelectedSenteceChanged()
@@ -98,6 +135,7 @@
 
     private async Task Train()
     {
+        _dataLoaded = true;
         TrainDto train = new TrainDto();
         train.FileName = _fileName;
         train.Sentence = _selectedSentence;
@@ -106,6 +144,31 @@
         var bodyContent = new StringContent(content, Encoding.UTF8, "application/json");
         var response = await httpClient.PostAsync("http://localhost:7001/train", bodyContent);
         var message = await response.Content.ReadFromJsonAsync<TrainResultDto>();
+        _dataLoaded = false;
         await jsRuntime.InvokeVoidAsync("alert",message.Message);
+        _showTestSentence = true;
+        StateHasChanged();
+    }
+
+    private async Task Test()
+    {
+        _dataLoaded = true;
+        ClassifierTestDto test = new ClassifierTestDto();
+        test.FileName = _fileName;
+        test.Sentence = _selectedSentence;
+        test.TestSentence = _testSentence;
+        var content = JsonSerializer.Serialize(test);
+        var bodyContent = new StringContent(content, Encoding.UTF8, "application/json");
+        var response = await httpClient.PostAsync("http://localhost:7001/testsentence", bodyContent);
+        var message = await response.Content.ReadFromJsonAsync<ClassifierTestResultDto>();
+        _dataLoaded = false;
+        List<string> testResults = new List<string>();
+        var labelList = _labels.ToList();
+        for (int i = 0; i < labelList.Count(); i++)
+        {
+            testResults.Add(labelList[i] + ": " + message.Result[i]);
+        }
+        _testResult = string.Join(',', testResults);
+        StateHasChanged();
     }
 }

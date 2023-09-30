@@ -11,22 +11,23 @@ import neattext as nt
 import neattext.functions as nfx
 import pickle
 
+def test(fileName, sentence, testSentence):
+    df = pd.read_csv(fileName)
 
-df = pd.read_csv("train2.csv")
+    corpus = df[sentence].apply(nfx.remove_stopwords) 
 
-corpus = df['comment_text'].apply(nfx.remove_stopwords) 
+    tfidf = TfidfVectorizer()
 
-tfidf = TfidfVectorizer()
+    tfidf.fit_transform(corpus).toarray()
 
-tfidf.fit_transform(corpus).toarray()
+    # load saved model
+    pklFileName = fileName + ".pkl"
+    with open(pklFileName , 'rb') as f:
+        lr = pickle.load(f)
+    # check prediction
 
-# load saved model
-with open('tweet_model.pkl' , 'rb') as f:
-    lr = pickle.load(f)
-# check prediction
+    ex1 = testSentence
 
-ex1 = "Son of a bitch"
+    vec_example = tfidf.transform([ex1])
 
-vec_example = tfidf.transform([ex1])
-
-print(lr.predict(vec_example).toarray()) 
+    return lr.predict(vec_example).toarray()
