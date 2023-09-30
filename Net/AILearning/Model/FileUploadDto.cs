@@ -11,7 +11,7 @@
 
     public class FileDataDto
     {
-        public byte[] ImageBytes { get; set; }
+        public string Base64string { get; set; }
         public string FileName { get; set; }
         public string FileType { get; set; }
         public long FileSize { get; set; }

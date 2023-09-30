@@ -10,36 +10,35 @@ from skmultilearn.problem_transform import LabelPowerset
 import neattext as nt
 import neattext.functions as nfx
 import pickle
+import asyncio
 
+async def train_data(fileName, sentence, labels):
+    print("message: start training.")
+    df = pd.read_csv(fileName)
 
+    corpus = df[sentence].apply(nfx.remove_stopwords) 
 
-df = pd.read_csv("train2.csv")
+    tfidf = TfidfVectorizer()
 
-corpus = df['comment_text'].apply(nfx.remove_stopwords) 
+    Xfeatures = tfidf.fit_transform(corpus).toarray()
 
-tfidf = TfidfVectorizer()
+    y = df[labels]
 
-Xfeatures = tfidf.fit_transform(corpus).toarray()
+    X_train,X_test,y_train,y_test = train_test_split(Xfeatures,y,test_size=0.3,random_state=42)
 
-y = df[['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']]
+    binary_rel_clf = BinaryRelevance(classifier=MultinomialNB(alpha=1.0, class_prior=None,
+                                            fit_prior=True),
+                    require_dense=[True, True])
 
-X_train,X_test,y_train,y_test = train_test_split(Xfeatures,y,test_size=0.3,random_state=42)
+    binary_rel_clf.fit(X_train,y_train)
 
-binary_rel_clf = BinaryRelevance(classifier=MultinomialNB(alpha=1.0, class_prior=None,
-                                         fit_prior=True),
-                require_dense=[True, True])
+    br_prediction = binary_rel_clf.predict(X_test)
 
-binary_rel_clf.fit(X_train,y_train)
+    print(br_prediction.toarray())
 
-br_prediction = binary_rel_clf.predict(X_test)
+    model_pkl_file = fileName + ".pkl"  
 
-model_pkl_file = "tweet_model.pkl"  
+    with open(model_pkl_file, 'wb') as file:  
+        pickle.dump(binary_rel_clf, file)
 
-with open(model_pkl_file, 'wb') as file:  
-    pickle.dump(binary_rel_clf, file)
-
-ex1 = "COCKSUCKER BEFORE YOU PISS AROUND ON MY WORK"
-
-vec_example = tfidf.transform([ex1])
-
-print(binary_rel_clf.predict(vec_example).toarray())
+    print("training completed.")
