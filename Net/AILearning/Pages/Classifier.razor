@@ -1,0 +1,55 @@
+﻿@page "/classifier"
+@using System.Text.Json;
+@using AILearning.Helper;
+@using AILearning.Model;
+@using System.Text;
+@using System.Net;
+@inject HttpClient httpClient;
+@inject IJSRuntime jsRuntime;
+@using System.IO
+
+<h3>Classifier</h3>
+<MudPaper Elevation="3" Class="pa-5 mb-5">
+    <InputFile id="fileInput" OnChange="UploadFiles" hidden />
+    <MudButton HtmlTag="label"
+               Variant="Variant.Filled"
+               Color="Color.Success"
+               StartIcon="@Icons.Filled.CloudUpload"
+               for="fileInput">
+        Upload Files
+    </MudButton>
+</MudPaper>
+@*@if ((saveFile?.Files?.Count ?? 0) > 0)
+{
+    <MudPaper Class="d-flex justify-center py-2 px-1">
+        @foreach (var item in saveFile?.Files)
+        {
+            <MudPaper Class="pa-2 mx-2">
+                <MudIconButton Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="@(_ => RemoveImg(item))" aria-label="delete"></MudIconButton>
+ 
+                <img width="150" height="150" src="@($"data:{item.FileType};base64,{Convert.ToBase64String(item.ImageBytes)}")">
+            </MudPaper>
+        }
+    </MudPaper>
+}*@
+@code {
+    private async Task UploadFiles(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+
+        var fileData = new FileDataDto();
+        MemoryStream ms = new MemoryStream();
+        await file.OpenReadStream(512000000).CopyToAsync(ms);
+        var bytes = ms.ToArray();
+        fileData.FileName = file.Name;
+        fileData.FileSize = file.Size;
+        fileData.FileType = file.ContentType;
+        fileData.ImageBytes = bytes;
+
+        var content = JsonSerializer.Serialize(fileData);
+        var bodyContent = new StringContent(content, Encoding.UTF8, "application/json");
+        var response = await httpClient.PostAsync("http://localhost:7001/upload", bodyContent);
+        var result = await response.Content.ReadFromJsonAsync<LLMResultDto>();
+        jsRuntime.InvokeVoidAsync("alert", result.Result);
+    }
+}

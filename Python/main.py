@@ -132,7 +132,7 @@ def chat():
     requestData = json.loads(request.data) 
     input = requestData['Input']
     # Log in to huggingface and grant authorization to huggingchat
-    sign = Login("zulkifli.fauzi@polyrific.com", "G@rdeni@4")
+    sign = Login("zulkifli.fauzi@polyrific.com", "Polyrific*1")
     cookies = sign.login()
 
     # Save cookies to the local directory
