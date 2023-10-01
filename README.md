@@ -41,7 +41,7 @@ flask --app main.py  run -p 7000
 ```
 the API server will be listening on port 7000
 
-## Client side application
+## 2. Client side application
 to run the client-side application, go to the main/Net/AILearning folder and then run the below command'
 ```
 dotnet watch run ailearning
@@ -87,7 +87,7 @@ flask --app main.py  run -p 7001
 ```
 the API server will be listening on port 7000
 
-## Client side application
+## 2. Client side application
 to run the client-side application, go to the main/Net/AILearning folder and then run the below command'
 ```
 dotnet watch run ailearning
